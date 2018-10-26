@@ -1,5 +1,6 @@
 #include <iostream>
 #include <Dense>
+#include <deque>
 #include <chrono>
 #include <unistd.h>
 
@@ -44,7 +45,12 @@ float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int win
 int main(int argc, char** argv)
 {
 
-    ArrayXi samples = ArrayXi::Random(MAXSAMPLESIZE);
+    std::deque<ArrayXi> data;
+    ArrayXi samples(MAXSAMPLESIZE);
+    for (int event = 0; event<NUMEVENTS; event++){
+
+        data.push_back(ArrayXi::Random(MAXSAMPLESIZE));
+        }
     ArrayXXf filters = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
     ArrayXXf tempEvents = ArrayXXf::Random(1, NUMEVENTS);
     Array<bool, 1, NUMEVENTS> isEvent;
@@ -57,6 +63,7 @@ int main(int argc, char** argv)
     for (int repeat = 0; repeat<REPEAT; repeat++){
         for (int i = 4; i<NUMEVENTS; i++){
             if (isEvent(i) == true){
+                samples = data.front();
                 if (isEvent(i-1) == true){
                     //use filter of length 2
                     sum = evaluate_energy(samples, filters, 2);
@@ -99,6 +106,7 @@ int main(int argc, char** argv)
                         }
                     }
                 }
+            data.pop_front();
             }
 
         }
