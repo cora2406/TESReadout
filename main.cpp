@@ -67,6 +67,7 @@ int main(int argc, char** argv)
     ArrayXi samples(MAXSAMPLESIZE);
     int write_index = make_data(&samples);
     int read_index=0;
+    bool wraparound=true;
     ArrayXXf filterGroupA = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
     ArrayXXf filterGroupB = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
     ArrayXXf selectedFilters(MAXSAMPLESIZE, FILTERS);
@@ -78,12 +79,17 @@ int main(int argc, char** argv)
     int sum=0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
-    for (int repeat = 0; repeat<REPEAT; repeat++){
+//    for (int repeat = 0; repeat<REPEAT; repeat++){
         read_index = 3*SAMPLESPERWINDOW;
         for (int i = 3; i<NUMEVENTS; i++){
-            if (read_index%(MAXWINDOW/2)==0){
-                write_index = make_data(&samples, MAXWINDOW/2, write_index);
-                //cout << "Index updated to : " << write_index << endl;
+            if (wraparound == false && (write_index - read_index <= 2*SAMPLESPERWINDOW)){
+                write_index = make_data(&samples, (MAXWINDOW/2) * SAMPLESPERWINDOW, write_index);
+                cout << "Index updated to : " << write_index << endl;
+                if (read_index > write_index) { wraparound = true; }
+            }
+            if (wraparound == true && (samples.size()-(read_index - write_index) <= 2*SAMPLESPERWINDOW)){
+                write_index = make_data(&samples, (MAXWINDOW/2) * SAMPLESPERWINDOW, write_index);
+                cout << "Index updated to : " << write_index << endl;
             }
             if (isEvent(i) == true){
 //                if (isEvent(i-1) == true){
@@ -130,8 +136,13 @@ int main(int argc, char** argv)
 //                }
             }
             read_index += 100;
+            if (read_index>samples.size()){
+                read_index=0;
+                wraparound=false;
+            }
+            cout << read_index << endl;
         }
-    }
+ //   }
 
 
     auto t2 = std::chrono::high_resolution_clock::now();
