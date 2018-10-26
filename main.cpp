@@ -10,15 +10,15 @@ using namespace std;
 #define FILTERS 4
 #define VERBOSE 2
 #define REPEAT 3
-#define SAMPLESPEREVENT 100
-#define MAXWINDOW 6
-#define MAXSAMPLESIZE MAXWINDOW*SAMPLESPEREVENT
-#define MAXFILTERS 5
-#define NUMEVENTS 10000
+#define SAMPLESPERWINDOW 100
+#define MAXWINDOW 100
+#define MAXSAMPLESIZE MAXWINDOW*SAMPLESPERWINDOW
+#define MAXFILTERS 3
+#define NUMEVENTS 1000
 
 float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int windowsize){
 
-    int size = SAMPLESPEREVENT*windowsize;
+    int size = SAMPLESPERWINDOW*windowsize;
     ArrayXf temp(size);
     ArrayXf samples = (int_samples.cast<float>() / 1000).head(size);
     float energy = (samples * filters.topLeftCorner(size,1)).sum();
@@ -42,79 +42,94 @@ float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int win
 
 }
 
-void make_data(std::deque<ArrayXi> *data, int events, int width){
-        ArrayXi samples(width);
-        for (int event = 0; event<events; event++){
-
-        (*data).push_back(ArrayXi::Random(width));
+int make_data(ArrayXi *samples, int new_samples = -1, int start_index=0){
+    //fills the array with random data. can specify width
+    // returns new write index
+        if (new_samples == -1){
+        new_samples = (*samples).size();
         }
+
+        if (start_index+new_samples >= (*samples).size()){
+            int partial_samples = (*samples).size()-start_index;
+            (*samples).block(start_index,0,partial_samples,1) = ArrayXi::Random(partial_samples, 1);
+            partial_samples = new_samples-partial_samples;
+            (*samples).block(start_index,0,partial_samples,1) = ArrayXi::Random(partial_samples, 1);
+        }
+        else {
+            (*samples).block(start_index,0,new_samples,1) = ArrayXi::Random(new_samples, 1);
+        }
+
+        return (start_index+new_samples)%((*samples).size());
 }
 
 int main(int argc, char** argv)
 {
     ArrayXi samples(MAXSAMPLESIZE);
-    std::deque<ArrayXi> data;
-    //make_data(&data, NUMEVENTS, MAXSAMPLESIZE);
-
-    ArrayXXf filters = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
+    int write_index = make_data(&samples);
+    int read_index=0;
+    ArrayXXf filterGroupA = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
+    ArrayXXf filterGroupB = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
+    ArrayXXf selectedFilters(MAXSAMPLESIZE, FILTERS);
     ArrayXXf tempEvents = ArrayXXf::Random(1, NUMEVENTS);
     Array<bool, 1, NUMEVENTS> isEvent;
 
     isEvent = tempEvents > 0.5;
 
-    int sum;
+    int sum=0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat<REPEAT; repeat++){
-        make_data(&data, NUMEVENTS, MAXSAMPLESIZE);
-        for (int i = 4; i<NUMEVENTS; i++){
-            if (isEvent(i) == true){
-                samples = data.front();
-                if (isEvent(i-1) == true){
-                    //use filter of length 2
-                    sum = evaluate_energy(samples, filters, 2);
-                    #if VERBOSE > 1
-                    cout << isEvent.segment<6>(i-5) << " -- " << "2 period filter used. The sum is " << sum << endl;
-                    #endif
-                }
-                else{
-                    if (isEvent(i-2) == true){
-                    //use filter of length 3
-                    sum = evaluate_energy(samples, filters, 3);
-                    #if VERBOSE > 1
-                    cout << isEvent.segment<6>(i-5) << " -- " << "3 period filter used. The sum is " << sum << endl;
-                    #endif
-
-                    }
-                    else{
-                        if (isEvent(i-3) == true){
-                        //use filter of length 4
-                        sum = evaluate_energy(samples, filters, 4);
-                        #if VERBOSE > 1
-                        cout << isEvent.segment<6>(i-5) << " -- " << "4 period filter used.  The sum is " << sum  << endl;
-                        #endif
-                        }
-                        else{
-                            if (isEvent(i-4) == true){
-                                //use filter of length 5
-                                sum = evaluate_energy(samples, filters, 5);
-                                #if VERBOSE > 1
-                                cout << isEvent.segment<6>(i-5) << " -- " << "5 period filter used. The sum is " << sum  << endl;
-                                #endif
-                            }
-                            else{
-                                //use single event filter
-                                sum = evaluate_energy(samples, filters, 1);
-                                #if VERBOSE > 1
-                                cout << isEvent.segment<6>(i-5) << " -- " << "Single period filter used. The sum is " << sum  << endl;
-                                #endif
-                            }
-                        }
-                    }
-                }
-            data.pop_front();
+        read_index = 3*SAMPLESPERWINDOW;
+        for (int i = 3; i<NUMEVENTS; i++){
+            if (read_index%(MAXWINDOW/2)==0){
+                write_index = make_data(&samples, MAXWINDOW/2, write_index);
+                //cout << "Index updated to : " << write_index << endl;
             }
-
+            if (isEvent(i) == true){
+//                if (isEvent(i-1) == true){
+//                    //use filter of length 2
+//                    sum = evaluate_energy(samples, filters, 2);
+//                    #if VERBOSE > 1
+//                    cout << isEvent.segment<6>(i-5) << " -- " << "2 period filter used. The sum is " << sum << endl;
+//                    #endif
+//                }
+//                else{
+//                    if (isEvent(i-2) == true){
+//                    //use filter of length 3
+//                    sum = evaluate_energy(samples, filters, 3);
+//                    #if VERBOSE > 1
+//                    cout << isEvent.segment<6>(i-5) << " -- " << "3 period filter used. The sum is " << sum << endl;
+//                    #endif
+//
+//                    }
+//                    else{
+//                        if (isEvent(i-3) == true){
+//                        //use filter of length 4
+//                        sum = evaluate_energy(samples, filters, 4);
+//                        #if VERBOSE > 1
+//                        cout << isEvent.segment<6>(i-5) << " -- " << "4 period filter used.  The sum is " << sum  << endl;
+//                        #endif
+//                        }
+//                        else{
+//                            if (isEvent(i-4) == true){
+//                                //use filter of length 5
+//                                sum = evaluate_energy(samples, filters, 5);
+//                                #if VERBOSE > 1
+//                                cout << isEvent.segment<6>(i-5) << " -- " << "5 period filter used. The sum is " << sum  << endl;
+//                                #endif
+//                            }
+//                            else{
+//                                //use single event filter
+//                                sum = evaluate_energy(samples, filters, 1);
+//                                #if VERBOSE > 1
+//                                cout << isEvent.segment<6>(i-5) << " -- " << "Single period filter used. The sum is " << sum  << endl;
+//                                #endif
+//                            }
+//                        }
+//                    }
+//                }
+            }
+            read_index += 100;
         }
     }
 
