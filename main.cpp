@@ -71,6 +71,8 @@ int main(int argc, char** argv)
     ArrayXXf filterGroupA = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
     ArrayXXf filterGroupB = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
     ArrayXXf selectedFilters(MAXSAMPLESIZE, FILTERS);
+    int first_index=0;
+    int last_index=100;
     ArrayXXf tempEvents = ArrayXXf::Random(1, NUMEVENTS);
     Array<bool, 1, NUMEVENTS> isEvent;
 
@@ -81,7 +83,7 @@ int main(int argc, char** argv)
     auto t1 = std::chrono::high_resolution_clock::now();
 //    for (int repeat = 0; repeat<REPEAT; repeat++){
         read_index = 3*SAMPLESPERWINDOW;
-        for (int i = 3; i<NUMEVENTS; i++){
+        for (int i = 3; i<NUMEVENTS-1; i++){
             if (wraparound == false && (write_index - read_index <= 2*SAMPLESPERWINDOW)){
                 write_index = make_data(&samples, (MAXWINDOW/2) * SAMPLESPERWINDOW, write_index);
                 cout << "Index updated to : " << write_index << endl;
@@ -92,55 +94,37 @@ int main(int argc, char** argv)
                 cout << "Index updated to : " << write_index << endl;
             }
             if (isEvent(i) == true){
-//                if (isEvent(i-1) == true){
-//                    //use filter of length 2
-//                    sum = evaluate_energy(samples, filters, 2);
-//                    #if VERBOSE > 1
-//                    cout << isEvent.segment<6>(i-5) << " -- " << "2 period filter used. The sum is " << sum << endl;
-//                    #endif
-//                }
-//                else{
-//                    if (isEvent(i-2) == true){
-//                    //use filter of length 3
-//                    sum = evaluate_energy(samples, filters, 3);
-//                    #if VERBOSE > 1
-//                    cout << isEvent.segment<6>(i-5) << " -- " << "3 period filter used. The sum is " << sum << endl;
-//                    #endif
-//
-//                    }
-//                    else{
-//                        if (isEvent(i-3) == true){
-//                        //use filter of length 4
-//                        sum = evaluate_energy(samples, filters, 4);
-//                        #if VERBOSE > 1
-//                        cout << isEvent.segment<6>(i-5) << " -- " << "4 period filter used.  The sum is " << sum  << endl;
-//                        #endif
-//                        }
-//                        else{
-//                            if (isEvent(i-4) == true){
-//                                //use filter of length 5
-//                                sum = evaluate_energy(samples, filters, 5);
-//                                #if VERBOSE > 1
-//                                cout << isEvent.segment<6>(i-5) << " -- " << "5 period filter used. The sum is " << sum  << endl;
-//                                #endif
-//                            }
-//                            else{
-//                                //use single event filter
-//                                sum = evaluate_energy(samples, filters, 1);
-//                                #if VERBOSE > 1
-//                                cout << isEvent.segment<6>(i-5) << " -- " << "Single period filter used. The sum is " << sum  << endl;
-//                                #endif
-//                            }
-//                        }
-//                    }
-//                }
+                if (isEvent(i+1) == true){
+                    //use filter of group A - ignore following window
+                    selectedFilters = filterGroupA;
+                    last_index = read_index+SAMPLESPERWINDOW;
+                }
+                else{
+                    //use filter of group B, include following window
+                    selectedFilters = filterGroupB;
+                    last_index = read_index+2*SAMPLESPERWINDOW;
+                }
+
+                if (isEvent(i-1) == true){
+                    //Signal in previous window, include this window
+                    first_index = read_index-SAMPLESPERWINDOW;
+                }
+                else{
+                    //No signal in previous window, use window before that, different filter if there is a signal or not
+                    first_index = read_index-2*SAMPLESPERWINDOW;
+                    if (isEvent(i-2) == true){
+                    }
+                    else{
+                    }
+                }
+            cout << isEvent.segment<5>(i-3) << " -- " << first_index << "-" << last_index << endl;
             }
             read_index += 100;
             if (read_index>samples.size()){
                 read_index=0;
                 wraparound=false;
             }
-            cout << read_index << endl;
+
         }
  //   }
 
