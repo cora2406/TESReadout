@@ -9,12 +9,12 @@ using namespace std;
 
 #define FILTERS 4
 #define VERBOSE 2
-#define REPEAT 1
+#define REPEAT 3
 #define SAMPLESPEREVENT 100
 #define MAXWINDOW 6
 #define MAXSAMPLESIZE MAXWINDOW*SAMPLESPEREVENT
 #define MAXFILTERS 5
-#define NUMEVENTS 1000
+#define NUMEVENTS 10000
 
 float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int windowsize){
 
@@ -42,15 +42,20 @@ float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int win
 
 }
 
+void make_data(std::deque<ArrayXi> *data, int events, int width){
+        ArrayXi samples(width);
+        for (int event = 0; event<events; event++){
+
+        (*data).push_back(ArrayXi::Random(width));
+        }
+}
+
 int main(int argc, char** argv)
 {
-
-    std::deque<ArrayXi> data;
     ArrayXi samples(MAXSAMPLESIZE);
-    for (int event = 0; event<NUMEVENTS; event++){
+    std::deque<ArrayXi> data;
+    //make_data(&data, NUMEVENTS, MAXSAMPLESIZE);
 
-        data.push_back(ArrayXi::Random(MAXSAMPLESIZE));
-        }
     ArrayXXf filters = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
     ArrayXXf tempEvents = ArrayXXf::Random(1, NUMEVENTS);
     Array<bool, 1, NUMEVENTS> isEvent;
@@ -61,6 +66,7 @@ int main(int argc, char** argv)
 
     auto t1 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat<REPEAT; repeat++){
+        make_data(&data, NUMEVENTS, MAXSAMPLESIZE);
         for (int i = 4; i<NUMEVENTS; i++){
             if (isEvent(i) == true){
                 samples = data.front();
