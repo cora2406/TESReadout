@@ -15,7 +15,7 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 1000
+#define NUMEVENTS 500
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -76,8 +76,8 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
         cout << "size : " << new_samples <<endl;
         }
 
-        if (start_index+new_samples >= (*data).size()){
-            int partial_samples = (*data).size()-start_index;
+        if (start_index+new_samples >= (*data).cols()){
+            int partial_samples = (*data).cols()-start_index;
             (*data).block(0,start_index,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
             partial_samples = new_samples-partial_samples;
             (*data).block(0,0,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
@@ -86,27 +86,27 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
             (*data).block(0,start_index,NPIXEL, new_samples) = ArrayXXi::Random(NPIXEL, new_samples);
         }
 
-        return (start_index+new_samples)%((*data).size());
+        return (start_index+new_samples)%((*data).cols());
 }
 
 float get_energy(std::vector<uint8_t>& hits,
-                 std::vector<uint16_t>& data,
-                 std::vector<float> filters1[],
-                 std::vector<float> filters2[],
+                 const ArrayXXi& data,
+                 std::vector<ArrayXf> filters1[],
+                 std::vector<ArrayXf> filters2[],
                  int i)
 {
     // if photon at t-1 we dont care to differentiate what happened at t-2
     if (hits[i-1]) hits[i-2] = 0;
     uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
     int length;
-    uint16_t* start;
-    float* v1;
-    float* v2;
+    int start;
+    ArrayXf* v1;
+    ArrayXf* v2;
     // the 6 different cases
     switch(mask) {
         case CASE1:
             // printf("case 1\n");
-            start = &data[(i - 1)*SAMPLESPERWINDOW];
+            start = (i - 1)*SAMPLESPERWINDOW;
             v1 = filters1[0].data();
             v2 = filters2[0].data();
             length = 2;
@@ -114,7 +114,7 @@ float get_energy(std::vector<uint8_t>& hits,
 
         case CASE2:
             // printf("case 2\n");
-            start = &data[(i - 1)*SAMPLESPERWINDOW];
+            start = (i - 1)*SAMPLESPERWINDOW;
             v1 = filters1[1].data();
             v2 = filters2[1].data();
             length = 3;
@@ -122,7 +122,7 @@ float get_energy(std::vector<uint8_t>& hits,
 
         case CASE3:
             // printf("case 3\n");
-            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            start = (i - 2)*SAMPLESPERWINDOW;
             v1 = filters1[2].data();
             v2 = filters2[2].data();
             length = 3;
@@ -130,7 +130,7 @@ float get_energy(std::vector<uint8_t>& hits,
 
         case CASE4:
             // printf("case 4\n");
-            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            start = (i - 2)*SAMPLESPERWINDOW;
             v1 = filters1[3].data();
             v2 = filters2[3].data();
             length = 4;
@@ -138,7 +138,7 @@ float get_energy(std::vector<uint8_t>& hits,
 
         case CASE5:
             // printf("case 5\n");
-            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            start = (i - 2)*SAMPLESPERWINDOW;
             v1 = filters1[4].data();
             v2 = filters2[4].data();
             length = 3;
@@ -146,7 +146,7 @@ float get_energy(std::vector<uint8_t>& hits,
 
         case CASE6:
             // printf("case 6\n");
-            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            start = (i - 2)*SAMPLESPERWINDOW;
             v1 = filters1[5].data();
             v2 = filters2[5].data();
             length = 4;
@@ -189,7 +189,7 @@ int main(int argc, char** argv)
                 cout << "Index updated to : " << write_index << endl;
                 if (read_index > write_index) { wraparound = true; }
             }
-            if (wraparound == true && (data.size()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
+            if (wraparound == true && (data.cols()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
                 write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
                 cout << "Index updated to : " << write_index << endl;
             }
@@ -208,10 +208,11 @@ int main(int argc, char** argv)
 
             //Increment the data reader
             read_index+= SAMPLESPERWINDOW;
-            if (read_index>data.size()){
+            if (read_index>=data.cols()){
                 read_index=0;
                 wraparound=false;
             }
+            //cout << read_index << endl;
         }
 
 
