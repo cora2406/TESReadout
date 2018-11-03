@@ -29,21 +29,21 @@ float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int win
 
     int size = SAMPLESPERWINDOW*windowsize;
     ArrayXf temp(size);
-    ArrayXf samples = (int_samples.cast<float>() / 1000).head(size);
-    float energy = (samples * filters.topLeftCorner(size,1)).sum();
+    ArrayXf data = (int_samples.cast<float>() / 1000).head(size);
+    float energy = (data * filters.topLeftCorner(size,1)).sum();
 
     #if FILTERS > 1
-    temp = 1/((samples + 20 * ArrayXf::Constant(size,52))); // linear transformation
+    temp = 1/((data + 20 * ArrayXf::Constant(size,52))); // linear transformation
     energy = energy + (temp * filters.block(0,1,size,1)).sum();
     #endif
 
     #if FILTERS > 2
-    temp = 1/((samples + 40 * ArrayXf::Constant(size,25))); // linear transformation
+    temp = 1/((data + 40 * ArrayXf::Constant(size,25))); // linear transformation
     energy = energy + (temp * filters.block(0,2,size,1)).sum();
     #endif
 
     #if FILTERS > 3
-    temp = 1/((samples - 32 * ArrayXf::Constant(size,0.45))); // linear transformation
+    temp = 1/((data - 32 * ArrayXf::Constant(size,0.45))); // linear transformation
     energy = energy + (temp * filters.block(0,3,size,1)).sum();
     #endif
 
@@ -68,46 +68,116 @@ void make_events(vector<uint8_t> hits[NPIXEL], int total, float threshold=0.5){
         }
 }
 
-int make_data(ArrayXXi *samples, int new_samples = -1, int start_index=0){
+int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
     //fills the array with random data. can specify width
     // returns new write index
         if (new_samples == -1){
-        new_samples = (*samples).cols();
+        new_samples = (*data).cols();
         cout << "size : " << new_samples <<endl;
         }
 
-        if (start_index+new_samples >= (*samples).size()){
-            int partial_samples = (*samples).size()-start_index;
-            (*samples).block(0,start_index,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
+        if (start_index+new_samples >= (*data).size()){
+            int partial_samples = (*data).size()-start_index;
+            (*data).block(0,start_index,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
             partial_samples = new_samples-partial_samples;
-            (*samples).block(0,0,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
+            (*data).block(0,0,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
         }
         else {
-            (*samples).block(0,start_index,NPIXEL, new_samples) = ArrayXXi::Random(NPIXEL, new_samples);
+            (*data).block(0,start_index,NPIXEL, new_samples) = ArrayXXi::Random(NPIXEL, new_samples);
         }
 
-        return (start_index+new_samples)%((*samples).size());
+        return (start_index+new_samples)%((*data).size());
 }
 
+float get_energy(std::vector<uint8_t>& hits,
+                 std::vector<uint16_t>& data,
+                 std::vector<float> filters1[],
+                 std::vector<float> filters2[],
+                 int i)
+{
+    // if photon at t-1 we dont care to differentiate what happened at t-2
+    if (hits[i-1]) hits[i-2] = 0;
+    uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
+    int length;
+    uint16_t* start;
+    float* v1;
+    float* v2;
+    // the 6 different cases
+    switch(mask) {
+        case CASE1:
+            // printf("case 1\n");
+            start = &data[(i - 1)*SAMPLESPERWINDOW];
+            v1 = filters1[0].data();
+            v2 = filters2[0].data();
+            length = 2;
+            break;
+
+        case CASE2:
+            // printf("case 2\n");
+            start = &data[(i - 1)*SAMPLESPERWINDOW];
+            v1 = filters1[1].data();
+            v2 = filters2[1].data();
+            length = 3;
+            break;
+
+        case CASE3:
+            // printf("case 3\n");
+            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            v1 = filters1[2].data();
+            v2 = filters2[2].data();
+            length = 3;
+            break;
+
+        case CASE4:
+            // printf("case 4\n");
+            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            v1 = filters1[3].data();
+            v2 = filters2[3].data();
+            length = 4;
+            break;
+
+        case CASE5:
+            // printf("case 5\n");
+            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            v1 = filters1[4].data();
+            v2 = filters2[4].data();
+            length = 3;
+            break;
+
+        case CASE6:
+            // printf("case 6\n");
+            start = &data[(i - 2)*SAMPLESPERWINDOW];
+            v1 = filters1[5].data();
+            v2 = filters2[5].data();
+            length = 4;
+            break;
+
+        default:
+            printf("Unkown case!!\n");
+            break;
+    }
+    return 0; //calculate_energy(start, v1, v2, length*SAMPLESPERWINDOW);
+}
 
 int main(int argc, char** argv)
 {
-    ArrayXXi samples(NPIXEL, MAXSAMPLESIZE);
+    ArrayXXi data(NPIXEL, MAXSAMPLESIZE);
     std::vector<uint8_t> hits[NPIXEL];
     for (int i=0; i<NPIXEL; i++) {
         hits[i].resize(MAXSAMPLESIZE);
     }
     make_events(hits, NUMEVENTS);
-    int write_index = make_data(&samples);
+    int write_index = make_data(&data);
     int read_index=0;
     bool wraparound=true;
-    ArrayXXf filterGroupA = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
-    ArrayXXf filterGroupB = ArrayXXf::Random(MAXSAMPLESIZE, FILTERS);
-    ArrayXXf selectedFilters(MAXSAMPLESIZE, FILTERS);
-    int first_index=0;
-    int last_index=100;
 
-
+    std::vector<ArrayXf> filters1;
+    std::vector<ArrayXf> filters2;
+    int lengths[] = {2, 3, 3, 4, 3, 4};
+    for (int i=0; i<6; i++) {
+        filters1.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));
+        filters2.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));;
+    }
 
     int sum=0;
 
@@ -115,18 +185,30 @@ int main(int argc, char** argv)
         read_index = 3*SAMPLESPERWINDOW;
         for (int i = 3; i<NUMEVENTS-1; i++){
             if (wraparound == false && (write_index - read_index <= 2*WINDOWS_IN_BUFFER)){
-                write_index = make_data(&samples, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+                write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
                 cout << "Index updated to : " << write_index << endl;
                 if (read_index > write_index) { wraparound = true; }
             }
-            if (wraparound == true && (samples.size()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
-                write_index = make_data(&samples, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+            if (wraparound == true && (data.size()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
+                write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
                 cout << "Index updated to : " << write_index << endl;
             }
 
+//            #pragma omp parallel for shared(data, filters1, filters2, hits) reduction(+:dummy)
+//            for (int p=0; p<NPIXEL; p++) {
+//                // main loop over time
+//                for (int j=2; j<WINDOWS_IN_BUFFER-1; j++) {
+//                    if (hits[p][j]) {
+//                        float energy = get_energy(hits[p], data.row(p), filters1, filters2, j);
+//                        dummy += energy;
+//                        // printf("energy %.2f\n", energy);
+//                    }
+//                }
+//            }
+
             //Increment the data reader
             read_index+= SAMPLESPERWINDOW;
-            if (read_index>samples.size()){
+            if (read_index>data.size()){
                 read_index=0;
                 wraparound=false;
             }
