@@ -15,8 +15,8 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 500
-#define NPIXEL 250
+#define NUMEVENTS 50
+#define NPIXEL 10
 
 const uint32_t CASE1 = 16843008;
 const uint32_t CASE2 = 65792;
@@ -25,30 +25,17 @@ const uint32_t CASE4 = 65537;
 const uint32_t CASE5 = 16842752;
 const uint32_t CASE6 = 65536;
 
-float evaluate_energy(const ArrayXi int_samples, const ArrayXXf filters, int windowsize){
-
-    int size = SAMPLESPERWINDOW*windowsize;
-    ArrayXf temp(size);
-    ArrayXf data = (int_samples.cast<float>() / 1000).head(size);
-    float energy = (data * filters.topLeftCorner(size,1)).sum();
-
-    #if FILTERS > 1
-    temp = 1/((data + 20 * ArrayXf::Constant(size,52))); // linear transformation
-    energy = energy + (temp * filters.block(0,1,size,1)).sum();
-    #endif
-
-    #if FILTERS > 2
-    temp = 1/((data + 40 * ArrayXf::Constant(size,25))); // linear transformation
-    energy = energy + (temp * filters.block(0,2,size,1)).sum();
-    #endif
-
-    #if FILTERS > 3
-    temp = 1/((data - 32 * ArrayXf::Constant(size,0.45))); // linear transformation
-    energy = energy + (temp * filters.block(0,3,size,1)).sum();
-    #endif
-
+float calculate_energy(Eigen::ArrayXf dataf, const Eigen::ArrayXf v1, const Eigen::ArrayXf v2)
+{
+    const float a = 2.0f;
+    const float b = 3.0f;
+    float energy = 0.0f;
+    cout << dataf.rows() << "  " << dataf.cols() << endl;
+    cout << (v1).rows() << "  " << (v1).cols() << endl;
+    energy = ((1.0f /(b - dataf)) * (v1)).sum();
+    cout << energy << endl;
+//    energy = ((1.0f / (b - dataf)) * *v1 + (1.0f / (a - dataf)) * *v2).sum();
     return energy;
-
 }
 
 void make_events(vector<uint8_t> hits[NPIXEL], int total, float threshold=0.5){
@@ -90,65 +77,66 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
 }
 
 float get_energy(std::vector<uint8_t>& hits,
-                 const ArrayXXi& data,
-                 std::vector<ArrayXf> filters1[],
-                 std::vector<ArrayXf> filters2[],
+                 const ArrayXi& data,
+                 std::vector<ArrayXf> filters1,
+                 std::vector<ArrayXf> filters2,
                  int i)
 {
     // if photon at t-1 we dont care to differentiate what happened at t-2
+    cout << filters1[4].rows() << endl;
     if (hits[i-1]) hits[i-2] = 0;
     uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
     int length;
     int start;
-    ArrayXf* v1;
-    ArrayXf* v2;
+    ArrayXf v1;
+    ArrayXf v2;
     // the 6 different cases
     switch(mask) {
         case CASE1:
             // printf("case 1\n");
             start = (i - 1)*SAMPLESPERWINDOW;
-            v1 = filters1[0].data();
-            v2 = filters2[0].data();
+            v1 = filters1[0];
+            v2 = filters2[0];
             length = 2;
             break;
 
         case CASE2:
             // printf("case 2\n");
             start = (i - 1)*SAMPLESPERWINDOW;
-            v1 = filters1[1].data();
-            v2 = filters2[1].data();
+            v1 = filters1[1];
+            v2 = filters2[1];
             length = 3;
             break;
 
         case CASE3:
             // printf("case 3\n");
             start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[2].data();
-            v2 = filters2[2].data();
+            v1 = filters1[2];
+            v2 = filters2[2];
             length = 3;
             break;
 
         case CASE4:
             // printf("case 4\n");
             start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[3].data();
-            v2 = filters2[3].data();
+            v1 = filters1[3];
+            v2 = filters2[3];
             length = 4;
             break;
 
         case CASE5:
             // printf("case 5\n");
             start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[4].data();
-            v2 = filters2[4].data();
+            v1 = filters1[4];
+            v2 = filters2[4];
             length = 3;
             break;
 
         case CASE6:
             // printf("case 6\n");
             start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[5].data();
-            v2 = filters2[5].data();
+            v1 = filters1[5];
+            v2 = filters2[5];
             length = 4;
             break;
 
@@ -156,7 +144,8 @@ float get_energy(std::vector<uint8_t>& hits,
             printf("Unkown case!!\n");
             break;
     }
-    return 0; //calculate_energy(start, v1, v2, length*SAMPLESPERWINDOW);
+    Eigen::ArrayXf dataf = (data.block(start,0,length*SAMPLESPERWINDOW, 1)).cast<float> ();
+    return calculate_energy(dataf, v1, v2);
 }
 
 int main(int argc, char** argv)
@@ -176,10 +165,12 @@ int main(int argc, char** argv)
     int lengths[] = {2, 3, 3, 4, 3, 4};
     for (int i=0; i<6; i++) {
         filters1.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));
-        filters2.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));;
+        filters2.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));
     }
 
-    int sum=0;
+    //cout << filters1[4].rows() << endl;
+
+    float sum=0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
         read_index = 3*SAMPLESPERWINDOW;
@@ -195,16 +186,17 @@ int main(int argc, char** argv)
             }
 
 //            #pragma omp parallel for shared(data, filters1, filters2, hits) reduction(+:dummy)
-//            for (int p=0; p<NPIXEL; p++) {
-//                // main loop over time
-//                for (int j=2; j<WINDOWS_IN_BUFFER-1; j++) {
-//                    if (hits[p][j]) {
-//                        float energy = get_energy(hits[p], data.row(p), filters1, filters2, j);
-//                        dummy += energy;
-//                        // printf("energy %.2f\n", energy);
-//                    }
-//                }
-//            }
+
+            for (int p=0; p<NPIXEL; p++) {
+                // main loop over time
+                for (int j=2; j<WINDOWS_IN_BUFFER-1; j++) {
+                    if (hits[p][j]) {
+                        float energy = get_energy(hits[p], data.row(p), filters1, filters2, j);
+                        sum += energy;
+                        // printf("energy %.2f\n", energy);
+                    }
+                }
+            }
 
             //Increment the data reader
             read_index+= SAMPLESPERWINDOW;
