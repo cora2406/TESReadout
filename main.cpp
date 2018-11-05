@@ -9,14 +9,14 @@ using namespace Eigen;
 using namespace std;
 
 #define FILTERS 4
-#define VERBOSE 2
+#define VERBOSE 1
 #define REPEAT 3
 #define SAMPLESPERWINDOW 100
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 1000
-#define NPIXEL 25
+#define NUMEVENTS 100000
+#define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
 const uint32_t CASE2 = 65792;
@@ -174,12 +174,16 @@ int main(int argc, char** argv)
         for (int i = 3; i<NUMEVENTS-1; i++){
             if (wraparound == false && (write_index - read_index <= 2*WINDOWS_IN_BUFFER)){
                 write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+                #if VERBOSE > 1
                 cout << "Index updated to : " << write_index << endl;
+                #endif
                 if (read_index > write_index) { wraparound = true; }
             }
             if (wraparound == true && (data.cols()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
                 write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+                #if VERBOSE > 1
                 cout << "Index updated to : " << write_index << endl;
+                #endif
             }
 
             auto t1_algo = std::chrono::high_resolution_clock::now();
@@ -195,7 +199,8 @@ int main(int argc, char** argv)
                     }
                 }
             }
-        t_acc += std::chrono::high_resolution_clock::now() - t1_algo;
+            t_acc += std::chrono::high_resolution_clock::now() - t1_algo;
+
             //Increment the data reader
             read_index+= SAMPLESPERWINDOW;
             if (read_index>=data.cols()){
