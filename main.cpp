@@ -15,8 +15,8 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 50
-#define NPIXEL 10
+#define NUMEVENTS 1000
+#define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
 const uint32_t CASE2 = 65792;
@@ -30,11 +30,9 @@ float calculate_energy(Eigen::ArrayXf dataf, const Eigen::ArrayXf v1, const Eige
     const float a = 2.0f;
     const float b = 3.0f;
     float energy = 0.0f;
-    cout << dataf.rows() << "  " << dataf.cols() << endl;
-    cout << (v1).rows() << "  " << (v1).cols() << endl;
-    energy = ((1.0f /(b - dataf)) * (v1)).sum();
-    cout << energy << endl;
-//    energy = ((1.0f / (b - dataf)) * *v1 + (1.0f / (a - dataf)) * *v2).sum();
+    //cout << dataf.rows() << "  " << dataf.cols() << endl;
+    //cout << (v1).rows() << "  " << (v1).cols() << endl;
+    energy = ((1.0f /(b - dataf)) * v1 + (1.0f / (a - dataf)) * v2).sum();
     return energy;
 }
 
@@ -83,7 +81,6 @@ float get_energy(std::vector<uint8_t>& hits,
                  int i)
 {
     // if photon at t-1 we dont care to differentiate what happened at t-2
-    cout << filters1[4].rows() << endl;
     if (hits[i-1]) hits[i-2] = 0;
     uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
     int length;
@@ -185,7 +182,8 @@ int main(int argc, char** argv)
                 cout << "Index updated to : " << write_index << endl;
             }
 
-//            #pragma omp parallel for shared(data, filters1, filters2, hits) reduction(+:dummy)
+
+            #pragma omp parallel for shared(data, filters1, filters2, hits) reduction(+:sum)
 
             for (int p=0; p<NPIXEL; p++) {
                 // main loop over time
