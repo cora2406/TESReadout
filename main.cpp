@@ -16,7 +16,7 @@ using namespace std;
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
 #define NUMEVENTS 1000
-#define NPIXEL 250
+#define NPIXEL 25
 
 const uint32_t CASE1 = 16843008;
 const uint32_t CASE2 = 65792;
@@ -28,11 +28,10 @@ const uint32_t CASE6 = 65536;
 float calculate_energy(Eigen::ArrayXf dataf, const Eigen::ArrayXf v1, const Eigen::ArrayXf v2)
 {
     const float a = 2.0f;
-    const float b = 3.0f;
     float energy = 0.0f;
     //cout << dataf.rows() << "  " << dataf.cols() << endl;
     //cout << (v1).rows() << "  " << (v1).cols() << endl;
-    energy = ((1.0f /(b - dataf)) * v1 + (1.0f / (a - dataf)) * v2).sum();
+    energy = (dataf * v1 + (1.0f / (a - dataf)) * v2).sum();
     return energy;
 }
 
@@ -83,8 +82,8 @@ float get_energy(std::vector<uint8_t>& hits,
     // if photon at t-1 we dont care to differentiate what happened at t-2
     if (hits[i-1]) hits[i-2] = 0;
     uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
-    int length;
-    int start;
+    int length=1;
+    int start=0;
     ArrayXf v1;
     ArrayXf v2;
     // the 6 different cases
@@ -168,6 +167,7 @@ int main(int argc, char** argv)
     //cout << filters1[4].rows() << endl;
 
     float sum=0;
+    std::chrono::duration<double, std::milli> t_acc;
 
     auto t1 = std::chrono::high_resolution_clock::now();
         read_index = 3*SAMPLESPERWINDOW;
@@ -182,7 +182,7 @@ int main(int argc, char** argv)
                 cout << "Index updated to : " << write_index << endl;
             }
 
-
+            auto t1_algo = std::chrono::high_resolution_clock::now();
             #pragma omp parallel for shared(data, filters1, filters2, hits) reduction(+:sum)
 
             for (int p=0; p<NPIXEL; p++) {
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
                     }
                 }
             }
-
+        t_acc += std::chrono::high_resolution_clock::now() - t1_algo;
             //Increment the data reader
             read_index+= SAMPLESPERWINDOW;
             if (read_index>=data.cols()){
@@ -212,7 +212,8 @@ int main(int argc, char** argv)
 
     #if VERBOSE > 0
     cout << "The sum is : " << sum << endl;
-    cout << "The process took " << fp_ms.count() << "ms" << endl;
+    cout << "The entire process took " << fp_ms.count() << "ms" << endl;
+    cout << "The algorithm took " << t_acc.count() << "ms" << endl;
     #endif
 
   //Multiply vectors then sum the coefficients for inner product.
