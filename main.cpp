@@ -15,7 +15,7 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 1000
+#define NUMEVENTS 1000000
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -24,16 +24,6 @@ const uint32_t CASE3 = 16842753;
 const uint32_t CASE4 = 65537;
 const uint32_t CASE5 = 16842752;
 const uint32_t CASE6 = 65536;
-
-float calculate_energy(Eigen::ArrayXf dataf, const Eigen::ArrayXf v1, const Eigen::ArrayXf v2)
-{
-    const float a = 2.0f;
-    float energy = 0.0f;
-    //cout << dataf.rows() << "  " << dataf.cols() << endl;
-    //cout << (v1).rows() << "  " << (v1).cols() << endl;
-    energy = (dataf * v1 + (1.0f / (a - dataf)) * v2).sum();
-    return energy;
-}
 
 void make_events(vector<uint8_t> hits[NPIXEL], int total, float threshold=0.5){
         std::random_device rd;
@@ -73,76 +63,6 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
         return (start_index+new_samples)%((*data).cols());
 }
 
-//float get_energy(std::vector<uint8_t>& hits,
-//                 const ArrayXi& data,
-//                 std::vector<ArrayXf>* filters1,
-//                 std::vector<ArrayXf>* filters2,
-//                 int i)
-//{
-//    // if photon at t-1 we dont care to differentiate what happened at t-2
-//    if (hits[i-1]) hits[i-2] = 0;
-//    uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
-//    int length=1;
-//    int start=0;
-//    ArrayXf v1;
-//    ArrayXf v2;
-//    // the 6 different cases
-//    switch(mask) {
-//        case CASE1:
-//            // printf("case 1\n");
-//            start = (i - 1)*SAMPLESPERWINDOW;
-//            v1 = (*filters1)[0];
-//            v2 = (*filters2)[0];
-//            length = 2;
-//            break;
-//
-//        case CASE2:
-//            // printf("case 2\n");
-//            start = (i - 1)*SAMPLESPERWINDOW;
-//            v1 = (*filters1)[1];
-//            v2 = (*filters2)[1];
-//            length = 3;
-//            break;
-//
-//        case CASE3:
-//            // printf("case 3\n");
-//            start = (i - 2)*SAMPLESPERWINDOW;
-//            v1 = (*filters1)[2];
-//            v2 = (*filters2)[2];
-//            length = 3;
-//            break;
-//
-//        case CASE4:
-//            // printf("case 4\n");
-//            start = (i - 2)*SAMPLESPERWINDOW;
-//            v1 = (*filters1)[3];
-//            v2 = (*filters2)[3];
-//            length = 4;
-//            break;
-//
-//        case CASE5:
-//            // printf("case 5\n");
-//            start = (i - 2)*SAMPLESPERWINDOW;
-//            v1 = (*filters1)[4];
-//            v2 = (*filters2)[4];
-//            length = 3;
-//            break;
-//
-//        case CASE6:
-//            // printf("case 6\n");
-//            start = (i - 2)*SAMPLESPERWINDOW;
-//            v1 = (*filters1)[5];
-//            v2 = (*filters2)[5];
-//            length = 4;
-//            break;
-//
-//        default:
-//            printf("Unkown case!!\n");
-//            break;
-//    }
-//    Eigen::ArrayXf dataf = (data.block(start,0,length*SAMPLESPERWINDOW, 1)).cast<float> ();
-//    return calculate_energy(dataf, v1, v2);
-//}
 
 int main(int argc, char** argv)
 {
@@ -276,8 +196,7 @@ int main(int argc, char** argv)
                         cout << "Size v1:" << v1.rows() << " x " << v1.cols() << endl;
                         cout << "Size v2:" << v2.rows() << " x " << v2.cols() << endl;
                         #endif
-                        float energy = calculate_energy(dataf, v1, v2);
-                        sum += energy;
+                        sum += (dataf * v1 + (1.0f / (2.0f - dataf)) * v2).sum();;
                         // printf("energy %.2f\n", energy);
                     }
                 }
@@ -302,8 +221,7 @@ int main(int argc, char** argv)
     cout << "The sum is : " << sum << endl;
     cout << "The entire process took " << fp_ms.count() << "ms" << endl;
     cout << "The algorithm took " << t_acc.count() << "ms" << endl;
+    cout << "Rate of " << double(NUMEVENTS)*1000 / t_acc.count() << " kHz" << endl;
     #endif
-
-  //Multiply vectors then sum the coefficients for inner product.
 
 }
