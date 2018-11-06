@@ -15,7 +15,7 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 1000000
+#define NUMEVENTS 10000
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -221,7 +221,7 @@ int main(int argc, char** argv)
     cout << "The sum is : " << sum << endl;
     cout << "The entire process took " << fp_ms.count() << "ms" << endl;
     cout << "The algorithm took " << t_acc.count() << "ms" << endl;
-    cout << "Rate of " << double(NUMEVENTS)*1000 / t_acc.count() << " kHz" << endl;
+    cout << "Rate of " << double(NUMEVENTS) / t_acc.count() << " kHz" << endl;
     #endif
 
 }
