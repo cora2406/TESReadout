@@ -15,7 +15,7 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 10000
+#define NUMEVENTS 1000
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -71,7 +71,7 @@ int main(int argc, char** argv)
     for (int i=0; i<NPIXEL; i++) {
         hits[i].resize(MAXSAMPLESIZE);
     }
-    make_events(hits, NUMEVENTS);
+    make_events(hits, MAXSAMPLESIZE);
     int write_index = make_data(&data);
     int read_index=0;
     bool wraparound=true;
@@ -102,6 +102,7 @@ int main(int argc, char** argv)
             }
             if (wraparound == true && (data.cols()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
                 write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+                make_events(hits, MAXSAMPLESIZE);
                 #if VERBOSE > 1
                 cout << "Index updated to : " << write_index << endl;
                 #endif
