@@ -186,17 +186,17 @@ int main(int argc, char** argv)
                 cout << "Index updated to : " << write_index << endl;
                 #endif
             }
+            int length=1;
+            int start=0;
+            ArrayXf v1;
+            ArrayXf v2;
 
             auto t1_algo = std::chrono::high_resolution_clock::now();
-            #pragma omp parallel for shared(data, filters1, filters2, hits) private(row_data, v1,v2, length, start) reduction(+:sum)
+            #pragma omp parallel for shared(data, filters1, filters2, hits) private(v1,v2, length, start) reduction(+:sum)
 
             for (int p=0; p<NPIXEL; p++) {
                 // main loop over time
                 ArrayXf row_data = data.row(p).cast<float> ();
-                int length=1;
-                int start=0;
-                ArrayXf v1;
-                ArrayXf v2;
                 for (int j=2; j<WINDOWS_IN_BUFFER-1; j++) {
                     if (hits[p][j]) {
                         if (hits[p][j-1]) hits[p][j-2] = 0;
