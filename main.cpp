@@ -15,7 +15,7 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 100000
+#define NUMEVENTS 1000
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -73,76 +73,76 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
         return (start_index+new_samples)%((*data).cols());
 }
 
-float get_energy(std::vector<uint8_t>& hits,
-                 const ArrayXi& data,
-                 std::vector<ArrayXf> filters1,
-                 std::vector<ArrayXf> filters2,
-                 int i)
-{
-    // if photon at t-1 we dont care to differentiate what happened at t-2
-    if (hits[i-1]) hits[i-2] = 0;
-    uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
-    int length=1;
-    int start=0;
-    ArrayXf v1;
-    ArrayXf v2;
-    // the 6 different cases
-    switch(mask) {
-        case CASE1:
-            // printf("case 1\n");
-            start = (i - 1)*SAMPLESPERWINDOW;
-            v1 = filters1[0];
-            v2 = filters2[0];
-            length = 2;
-            break;
-
-        case CASE2:
-            // printf("case 2\n");
-            start = (i - 1)*SAMPLESPERWINDOW;
-            v1 = filters1[1];
-            v2 = filters2[1];
-            length = 3;
-            break;
-
-        case CASE3:
-            // printf("case 3\n");
-            start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[2];
-            v2 = filters2[2];
-            length = 3;
-            break;
-
-        case CASE4:
-            // printf("case 4\n");
-            start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[3];
-            v2 = filters2[3];
-            length = 4;
-            break;
-
-        case CASE5:
-            // printf("case 5\n");
-            start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[4];
-            v2 = filters2[4];
-            length = 3;
-            break;
-
-        case CASE6:
-            // printf("case 6\n");
-            start = (i - 2)*SAMPLESPERWINDOW;
-            v1 = filters1[5];
-            v2 = filters2[5];
-            length = 4;
-            break;
-
-        default:
-            printf("Unkown case!!\n");
-            break;
-    }
-    Eigen::ArrayXf dataf = (data.block(start,0,length*SAMPLESPERWINDOW, 1)).cast<float> ();
-    return calculate_energy(dataf, v1, v2);
-}
+//float get_energy(std::vector<uint8_t>& hits,
+//                 const ArrayXi& data,
+//                 std::vector<ArrayXf>* filters1,
+//                 std::vector<ArrayXf>* filters2,
+//                 int i)
+//{
+//    // if photon at t-1 we dont care to differentiate what happened at t-2
+//    if (hits[i-1]) hits[i-2] = 0;
+//    uint32_t mask = *reinterpret_cast<uint32_t*>(&hits[i - 2]);
+//    int length=1;
+//    int start=0;
+//    ArrayXf v1;
+//    ArrayXf v2;
+//    // the 6 different cases
+//    switch(mask) {
+//        case CASE1:
+//            // printf("case 1\n");
+//            start = (i - 1)*SAMPLESPERWINDOW;
+//            v1 = (*filters1)[0];
+//            v2 = (*filters2)[0];
+//            length = 2;
+//            break;
+//
+//        case CASE2:
+//            // printf("case 2\n");
+//            start = (i - 1)*SAMPLESPERWINDOW;
+//            v1 = (*filters1)[1];
+//            v2 = (*filters2)[1];
+//            length = 3;
+//            break;
+//
+//        case CASE3:
+//            // printf("case 3\n");
+//            start = (i - 2)*SAMPLESPERWINDOW;
+//            v1 = (*filters1)[2];
+//            v2 = (*filters2)[2];
+//            length = 3;
+//            break;
+//
+//        case CASE4:
+//            // printf("case 4\n");
+//            start = (i - 2)*SAMPLESPERWINDOW;
+//            v1 = (*filters1)[3];
+//            v2 = (*filters2)[3];
+//            length = 4;
+//            break;
+//
+//        case CASE5:
+//            // printf("case 5\n");
+//            start = (i - 2)*SAMPLESPERWINDOW;
+//            v1 = (*filters1)[4];
+//            v2 = (*filters2)[4];
+//            length = 3;
+//            break;
+//
+//        case CASE6:
+//            // printf("case 6\n");
+//            start = (i - 2)*SAMPLESPERWINDOW;
+//            v1 = (*filters1)[5];
+//            v2 = (*filters2)[5];
+//            length = 4;
+//            break;
+//
+//        default:
+//            printf("Unkown case!!\n");
+//            break;
+//    }
+//    Eigen::ArrayXf dataf = (data.block(start,0,length*SAMPLESPERWINDOW, 1)).cast<float> ();
+//    return calculate_energy(dataf, v1, v2);
+//}
 
 int main(int argc, char** argv)
 {
@@ -167,6 +167,12 @@ int main(int argc, char** argv)
     //cout << filters1[4].rows() << endl;
 
     float sum=0;
+
+    int length=1;
+    int start=0;
+    ArrayXf v1;
+    ArrayXf v2;
+
     std::chrono::duration<double, std::milli> t_acc;
 
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -191,9 +197,87 @@ int main(int argc, char** argv)
 
             for (int p=0; p<NPIXEL; p++) {
                 // main loop over time
+                ArrayXf row_data = data.row(p).cast<float> ();
                 for (int j=2; j<WINDOWS_IN_BUFFER-1; j++) {
                     if (hits[p][j]) {
-                        float energy = get_energy(hits[p], data.row(p), filters1, filters2, j);
+                        if (hits[p][j-1]) hits[p][j-2] = 0;
+                        uint32_t mask = *reinterpret_cast<uint32_t*>(&(hits[p][j - 2]));
+                        // the 6 different cases
+                        #if VERBOSE > 2
+                        cout << mask << endl;
+                        #endif
+                        switch(mask) {
+                            case CASE1:
+                                #if VERBOSE > 2
+                                printf("case 1\n");
+                                #endif
+                                start = (j - 1)*SAMPLESPERWINDOW;
+                                v1 = filters1[0];
+                                v2 = filters2[0];
+                                length = 2;
+                                break;
+
+                            case CASE2:
+                                #if VERBOSE > 2
+                                printf("case 2\n");
+                                #endif
+                                start = (j - 1)*SAMPLESPERWINDOW;
+                                v1 = filters1[1];
+                                v2 = filters2[1];
+                                length = 3;
+                                break;
+
+                            case CASE3:
+                                #if VERBOSE > 2
+                                printf("case 3\n");
+                                #endif
+                                start = (j - 2)*SAMPLESPERWINDOW;
+                                v1 = filters1[2];
+                                v2 = filters2[2];
+                                length = 3;
+                                break;
+
+                            case CASE4:
+                                #if VERBOSE > 2
+                                printf("case 4\n");
+                                #endif
+                                start = (j - 2)*SAMPLESPERWINDOW;
+                                v1 = filters1[3];
+                                v2 = filters2[3];
+                                length = 4;
+                                break;
+
+                            case CASE5:
+                                #if VERBOSE > 2
+                                printf("case 5\n");
+                                #endif
+                                start = (j - 2)*SAMPLESPERWINDOW;
+                                v1 = filters1[4];
+                                v2 = filters2[4];
+                                length = 3;
+                                break;
+
+                            case CASE6:
+                                #if VERBOSE > 3
+                                printf("case 6\n");
+                                #endif
+                                start = (j - 2)*SAMPLESPERWINDOW;
+                                v1 = filters1[5];
+                                v2 = filters2[5];
+                                length = 4;
+                                break;
+
+                            default:
+                                printf("Unkown case!!\n");
+                                break;
+                        }
+                        ArrayXf dataf = (row_data.block(start,0,length*SAMPLESPERWINDOW,1));
+                        #if VERBOSE > 2
+                        cout << "Size data:" << dataf.rows() << " x " << dataf.cols() << endl;
+                        cout << "Size v1:" << v1.rows() << " x " << v1.cols() << endl;
+                        cout << "Size v2:" << v2.rows() << " x " << v2.cols() << endl;
+                        #endif
+                        float energy = calculate_energy(dataf, v1, v2);
                         sum += energy;
                         // printf("energy %.2f\n", energy);
                     }
