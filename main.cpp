@@ -15,7 +15,7 @@ using namespace std;
 #define WINDOWS_IN_BUFFER 100
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 1000
+#define NUMEVENTS 100
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -47,7 +47,9 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
     // returns new write index
         if (new_samples == -1){
         new_samples = (*data).cols();
+        #if VERBOSE > 1
         cout << "size : " << new_samples <<endl;
+        #endif
         }
 
         if (start_index+new_samples >= (*data).cols()){
@@ -63,16 +65,39 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
         return (start_index+new_samples)%((*data).cols());
 }
 
+int make_data_float(ArrayXXf *data, int new_samples = -1, int start_index=0){
+    //fills the array with random data. can specify width
+    // returns new write index
+        if (new_samples == -1){
+        new_samples = (*data).cols();
+        #if VERBOSE > 1
+        cout << "size : " << new_samples <<endl;
+        #endif
+        }
+
+        if (start_index+new_samples >= (*data).cols()){
+            int partial_samples = (*data).cols()-start_index;
+            (*data).block(0,start_index,NPIXEL,partial_samples) = ArrayXXf::Random(NPIXEL, partial_samples);
+            partial_samples = new_samples-partial_samples;
+            (*data).block(0,0,NPIXEL,partial_samples) = ArrayXXf::Random(NPIXEL, partial_samples);
+        }
+        else {
+            (*data).block(0,start_index,NPIXEL, new_samples) = ArrayXXf::Random(NPIXEL, new_samples);
+        }
+
+        return (start_index+new_samples)%((*data).cols());
+}
+
 
 int main(int argc, char** argv)
 {
-    ArrayXXi data(NPIXEL, MAXSAMPLESIZE);
+    ArrayXXf data(NPIXEL, MAXSAMPLESIZE);
     std::vector<uint8_t> hits[NPIXEL];
     for (int i=0; i<NPIXEL; i++) {
         hits[i].resize(MAXSAMPLESIZE);
     }
     make_events(hits, MAXSAMPLESIZE);
-    int write_index = make_data(&data);
+    int write_index = make_data_float(&data);
     int read_index=0;
     bool wraparound=true;
 
@@ -94,14 +119,14 @@ int main(int argc, char** argv)
         read_index = 3*SAMPLESPERWINDOW;
         for (int i = 3; i<NUMEVENTS-1; i++){
             if (wraparound == false && (write_index - read_index <= 2*WINDOWS_IN_BUFFER)){
-                write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+                write_index = make_data_float(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
                 #if VERBOSE > 1
                 cout << "Index updated to : " << write_index << endl;
                 #endif
                 if (read_index > write_index) { wraparound = true; }
             }
             if (wraparound == true && (data.cols()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
-                write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+                write_index = make_data_float(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
                 make_events(hits, MAXSAMPLESIZE);
                 #if VERBOSE > 1
                 cout << "Index updated to : " << write_index << endl;
