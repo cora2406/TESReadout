@@ -12,10 +12,10 @@ using namespace std;
 #define VERBOSE 1
 #define REPEAT 3
 #define SAMPLESPERWINDOW 100
-#define WINDOWS_IN_BUFFER 100
+#define WINDOWS_IN_BUFFER 10
 #define MAXSAMPLESIZE WINDOWS_IN_BUFFER*SAMPLESPERWINDOW
 #define MAXFILTERS 3
-#define NUMEVENTS 1000
+#define NUMEVENTS 100000
 #define NPIXEL 250
 
 const uint32_t CASE1 = 16843008;
@@ -91,33 +91,32 @@ int main(int argc, char** argv)
     std::chrono::duration<double, std::milli> t_acc;
 
     auto t1 = std::chrono::high_resolution_clock::now();
-        read_index = 3*SAMPLESPERWINDOW;
-        for (int i = 3; i<NUMEVENTS-1; i++){
-            if (wraparound == false && (write_index - read_index <= 2*WINDOWS_IN_BUFFER)){
-                write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
-                #if VERBOSE > 1
-                cout << "Index updated to : " << write_index << endl;
-                #endif
-                if (read_index > write_index) { wraparound = true; }
-            }
-            if (wraparound == true && (data.cols()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
-                write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
-                make_events(hits, MAXSAMPLESIZE);
-                #if VERBOSE > 1
-                cout << "Index updated to : " << write_index << endl;
-                #endif
-            }
-            int length=1;
-            int start=0;
-            ArrayXf v1;
-            ArrayXf v2;
+    read_index = 3*SAMPLESPERWINDOW;
+    for (int i = 3; i<NUMEVENTS-1; i+=WINDOWS_IN_BUFFER){
+        if (wraparound == false && (write_index - read_index <= 2*WINDOWS_IN_BUFFER)){
+            write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+            #if VERBOSE > 1
+            cout << "Index updated to : " << write_index << endl;
+            #endif
+            if (read_index > write_index) { wraparound = true; }
+        }
+        if (wraparound == true && (data.cols()-(read_index - write_index) <= 2*WINDOWS_IN_BUFFER)){
+            write_index = make_data(&data, (WINDOWS_IN_BUFFER/2) * SAMPLESPERWINDOW, write_index);
+            make_events(hits, MAXSAMPLESIZE);
+            #if VERBOSE > 1
+            cout << "Index updated to : " << write_index << endl;
+            #endif
+        }
+        int length=1;
+        int start=0;
+        ArrayXf v1;
+        ArrayXf v2;
 
-            auto t1_algo = std::chrono::high_resolution_clock::now();
-            #pragma omp parallel for shared(data, filters1, filters2, hits) private(v1,v2, length, start) reduction(+:sum)
+        auto t1_algo = std::chrono::high_resolution_clock::now();
+        #pragma omp parallel for shared(data, filters1, filters2, hits) private(v1,v2, length, start) reduction(+:sum)
 
             for (int p=0; p<NPIXEL; p++) {
                 // main loop over time
-                ArrayXf row_data = data.row(p).cast<float> ();
                 for (int j=2; j<WINDOWS_IN_BUFFER-1; j++) {
                     if (hits[p][j]) {
                         if (hits[p][j-1]) hits[p][j-2] = 0;
@@ -191,13 +190,13 @@ int main(int argc, char** argv)
                                 printf("Unkown case!!\n");
                                 break;
                         }
-                        ArrayXf dataf = (row_data.block(start,0,length*SAMPLESPERWINDOW,1));
                         #if VERBOSE > 2
                         cout << "Size data:" << dataf.rows() << " x " << dataf.cols() << endl;
                         cout << "Size v1:" << v1.rows() << " x " << v1.cols() << endl;
                         cout << "Size v2:" << v2.rows() << " x " << v2.cols() << endl;
                         #endif
-                        sum += (dataf * v1 + (1.0f / (2.0f - dataf)) * v2).sum();;
+                        ArrayXf dataf = data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).cast<float> ();
+                        sum += (dataf * v1 + (1.0f / (2.0f - dataf)) * v2).sum();
                         // printf("energy %.2f\n", energy);
                     }
                 }
