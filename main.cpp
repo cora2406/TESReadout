@@ -17,13 +17,13 @@ using namespace std;
 #define MAXFILTERS 3
 #define NUMEVENTS 100000
 #define NPIXEL 250
-
-const uint32_t CASE1 = 16843008;
-const uint32_t CASE2 = 65792;
-const uint32_t CASE3 = 16842753;
-const uint32_t CASE4 = 65537;
-const uint32_t CASE5 = 16842752;
-const uint32_t CASE6 = 65536;
+                        // previous - current - next - 2 windows later
+const uint32_t CASE1 = 0x01010100; // 1 1 1 -
+const uint32_t CASE2 = 0x00010100; // - 1 1 -
+const uint32_t CASE3 = 0x01010001; // 1 1 - 1
+const uint32_t CASE4 = 0x00010001; // - 1 - 1
+const uint32_t CASE5 = 0x01010000; // 1 1 - -
+const uint32_t CASE6 = 0x00010000; // - 1 - -
 
 void make_events(vector<uint8_t> hits[NPIXEL], int total, float threshold=0.5){
         std::random_device rd;
