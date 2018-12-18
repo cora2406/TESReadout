@@ -42,7 +42,7 @@ void make_events(vector<uint8_t> hits[NPIXEL], int total, float threshold=0.5){
         }
 }
 
-int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
+int make_data(MatrixXi *data, int new_samples = -1, int start_index=0){
     //fills the array with random data. can specify width
     // returns new write index
         if (new_samples == -1){
@@ -52,12 +52,12 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
 
         if (start_index+new_samples >= (*data).cols()){
             int partial_samples = (*data).cols()-start_index;
-            (*data).block(0,start_index,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
+            (*data).block(0,start_index,NPIXEL,partial_samples) = MatrixXi::Random(NPIXEL, partial_samples);
             partial_samples = new_samples-partial_samples;
-            (*data).block(0,0,NPIXEL,partial_samples) = ArrayXXi::Random(NPIXEL, partial_samples);
+            (*data).block(0,0,NPIXEL,partial_samples) = MatrixXi::Random(NPIXEL, partial_samples);
         }
         else {
-            (*data).block(0,start_index,NPIXEL, new_samples) = ArrayXXi::Random(NPIXEL, new_samples);
+            (*data).block(0,start_index,NPIXEL, new_samples) = MatrixXi::Random(NPIXEL, new_samples);
         }
 
         return (start_index+new_samples)%((*data).cols());
@@ -66,7 +66,7 @@ int make_data(ArrayXXi *data, int new_samples = -1, int start_index=0){
 
 int main(int argc, char** argv)
 {
-    ArrayXXi data(NPIXEL, MAXSAMPLESIZE);
+    MatrixXi data(NPIXEL, MAXSAMPLESIZE);
     std::vector<uint8_t> hits[NPIXEL];
     for (int i=0; i<NPIXEL; i++) {
         hits[i].resize(MAXSAMPLESIZE);
@@ -76,19 +76,22 @@ int main(int argc, char** argv)
     int read_index=0;
     bool wraparound=true;
 
-    std::vector<ArrayXf> filters1;
-    std::vector<ArrayXf> filters2;
+    std::vector<VectorXf> filters1;
+    std::vector<VectorXf> filters2;
     int lengths[] = {2, 3, 3, 4, 3, 4};
     for (int i=0; i<6; i++) {
-        filters1.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));
-        filters2.push_back(ArrayXf::Random(lengths[i]*SAMPLESPERWINDOW));
+        filters1.push_back(VectorXf::Random(lengths[i]*SAMPLESPERWINDOW));
+        filters2.push_back(VectorXf::Random(lengths[i]*SAMPLESPERWINDOW));
     }
+
+    VectorXf transformation_constant(1,1);
+    transformation_constant(0,0) = 2.0;
 
     //cout << filters1[4].rows() << endl;
 
     float sum=0;
 
-    std::chrono::duration<double, std::milli> t_acc;
+    std::chrono::duration<double, std::milli> t_acc(0);
 
     auto t1 = std::chrono::high_resolution_clock::now();
     read_index = 3*SAMPLESPERWINDOW;
@@ -109,8 +112,8 @@ int main(int argc, char** argv)
         }
         int length=1;
         int start=0;
-        ArrayXf v1;
-        ArrayXf v2;
+        VectorXf v1;
+        VectorXf v2;
 
         auto t1_algo = std::chrono::high_resolution_clock::now();
         #pragma omp parallel for shared(data, filters1, filters2, hits) private(v1,v2, length, start) reduction(+:sum)
@@ -190,14 +193,17 @@ int main(int argc, char** argv)
                                 printf("Unkown case!!\n");
                                 break;
                         }
-                        #if VERBOSE > 2
-                        cout << "Size data:" << dataf.rows() << " x " << dataf.cols() << endl;
-                        cout << "Size v1:" << v1.rows() << " x " << v1.cols() << endl;
-                        cout << "Size v2:" << v2.rows() << " x " << v2.cols() << endl;
-                        #endif
-                        ArrayXf dataf = data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).cast<float> ();
-                        sum += (dataf * v1 + (1.0f / (2.0f - dataf)) * v2).sum();
+
+                        //VectorXf dataf = data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).cast<float> ();
+                        //#if VERBOSE > 1
+                        //cout << "Size data:" << data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).rows() << " x " << data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).cols() << endl;
+                        //cout << "Size v1:" << v1.rows() << " x " << v1.cols() << endl;
+                        //cout << "Size v2:" << v2.rows() << " x " << v2.cols() << endl;
+                        //#endif
+                        //sum += (dataf * v1 + (1.0f / (2.0f - dataf)) * v2).sum();
                         // printf("energy %.2f\n", energy);
+                        sum+= v1.dot(data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).cast<float> ()) +
+                            v2.dot(3.5*((data.block<1, Dynamic>(p,start,1,length*SAMPLESPERWINDOW).cast<float> ()).colwise() - transformation_constant));
                     }
                 }
             }
